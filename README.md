@@ -9,7 +9,7 @@ The following build instructions uses OpenATV V7.0 as base system.
 
 - Install the OpenATV build system according to [OpenATV build-system](https://github.com/openatv/enigma2). \
 Make sure you are using branch `7.0`.\
-Follow the build instructions until including step `11. Update build-enviroment`. \
+Follow the build instructions until including step `11. Update build-enviroment`.
 
 - For step 12. choose `Build specific packages` executing `make init` using a appropriate value for MACHINE for your STB. \
 cd into the build directory.
@@ -20,5 +20,5 @@ cd into the build directory.
 
 - To build all packages at once call `build.sh` script in meta-vdr.
 
-- You will find the installable opkg packages in the directory tree of under `tmp/deploy/ipk`.
+- You will find the installable opkg packages in the directory tree under `tmp/deploy/ipk`.
 
