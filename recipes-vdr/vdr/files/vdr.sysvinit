@@ -1,0 +1,124 @@
+#!/bin/sh
+#
+# vdr start-stop script
+#
+### BEGIN INIT INFO
+# Provides:          vdr
+# Required-Start:    $remote_fs $network $syslog
+# Required-Stop:     $remote_fs $network $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Starts the Linux Video Disk Recorder (VDR)
+# Description:       Starts the Linux Video Disk Recorder (VDR),
+#                    if it is enabled in /etc/default/vdr.
+### END INIT INFO
+
+NAME=vdr
+DESC="Linux Video Disk Recorder"
+
+DAEMON=/usr/lib/vdr/runvdr
+PIDFILE=/var/run/runvdr.pid
+VDRPRG=/usr/bin/vdr
+
+test -x $DAEMON || exit 0
+test -x $VDRPRG || exit 0
+
+. /usr/lib/vdr/config-loader.sh
+
+. /usr/lib/vdr/commands-loader.sh
+
+get_status()
+{
+    if start-stop-daemon -K -t -n $(basename $DAEMON) -p $PIDFILE >/dev/null
+    then
+        echo " - is running."
+        exit 0
+    else
+        echo " - is not running."
+        exit 3
+    fi
+}
+
+startvdr()
+{
+    if [ "$ENABLED" != "0" ] ; then
+        # only start vdr if there is no other instance running
+        if start-stop-daemon -K -t -n $(basename $DAEMON) -p $PIDFILE >/dev/null
+        then
+            echo -n " - seems to be running already"
+        else
+            mergecommands "commands"
+            mergecommands "reccmds"
+
+	    if [ -n "$EPG_BACKUP_FILE" -a ! -e "$EPG_FILE" -a -e "$EPG_BACKUP_FILE" ] ; then
+	        cp -p $EPG_BACKUP_FILE $EPG_FILE
+	    fi
+            
+	    if [ -n "$FBC_CONFIG_FILE" -a -e "$FBC_CONFIG_FILE" ] ; then
+              /usr/lib/vdr/fbc-config
+	    fi
+
+            start-stop-daemon -S -q -a $DAEMON -b -n $(basename $DAEMON) -p $PIDFILE -m -- $REDIRECT
+        fi
+    else
+        echo -n " - aborted (to enable the daemon, edit /etc/default/vdr)"
+    fi
+}
+
+stopvdr()
+{
+    if start-stop-daemon -K -n $(basename $DAEMON) -p $PIDFILE >/dev/null
+    then
+	retry=60
+        testflg=""
+        while start-stop-daemon -K $testflg -x $VDRPRG >/dev/null
+	do
+          retry=$((retry - 1))
+	  if [ $retry -eq 0 ] ; then
+              echo -n " - not able to stop vdr process"
+	      break
+	  fi
+	  sleep 0.25
+          testflg="-t"
+	done
+	
+        rm -f $PIDFILE
+
+	if [ -n "$EPG_BACKUP_FILE" -a -e "$EPG_FILE" -a $retry -gt 0 ] ; then
+	  cp -up $EPG_FILE $EPG_BACKUP_FILE
+	fi
+    else
+        echo -n " - seems not to be running"
+    fi
+}
+
+case "$1" in
+    start)
+        echo -n "Starting $DESC: $NAME"
+        startvdr
+        echo "."
+        ;;
+    stop)
+        echo -n "Stopping $DESC: $NAME"
+        stopvdr
+        echo "."
+        ;;
+    restart|force-reload)
+        echo -n "Restarting $DESC: $NAME"
+        stopvdr
+        sleep 4
+        startvdr
+        echo "."
+        ;;
+    status)
+        echo -n "Getting status of $DESC: $NAME"
+        get_status
+        ;;
+    *)
+        N=/etc/init.d/$NAME
+        echo "Usage: $N {start|stop|restart|force-reload}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

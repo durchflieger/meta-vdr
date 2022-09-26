@@ -1,0 +1,13 @@
+--- a/devstatus.c
++++ b/devstatus.c
+@@ -162,6 +162,10 @@
+ public:
+      void deviceinfoAsString(cDevice *d) {
+         cDvbDevice *dvb = dynamic_cast<cDvbDevice *>(d);
++#ifdef __DYNAMIC_DEVICE_PROBE
++        if (dvb == NULL)
++           dvb = dynamic_cast<cDvbDevice *>(d->SubDevice());
++#endif
+         if (dvb == NULL)
+            return;
+ 

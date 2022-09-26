@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+WAKEUP=$1
+ALARM_DEVICE=/proc/stb/fp/wakeup_time
+STATUS_DEVICE=/proc/stb/fp/was_timer_wakeup
+
+log="logger -t vdr-shutdown-hook/$(basename $0)"
+
+if [ -n "$ALARM_DEVICE" -a -e "$ALARM_DEVICE" ] ; then
+  $log "set wakeup alarm time to $WAKEUP"
+  echo $WAKEUP > $ALARM_DEVICE
+  if [ -n "$STATUS_DEVICE" -a -e "$STATUS_DEVICE" ] ; then
+    echo "0" > $STATUS_DEVICE
+  fi
+fi

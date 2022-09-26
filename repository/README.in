@@ -1,0 +1,25 @@
+# opkg repository with VDR for OE ${OE_VERSION}
+This is the opkg repository providing VDR for OE-Linux ${OE_VERSION}
+
+## Supported platform:
+These packages are compiled for the following platform:
+
+Distro: ${DISTRO}\
+Machine: ${MACHINE}\
+Machinebuild: ${MACHINEBUILD}
+
+## OPKG feed configuration file
+Download and install opkg feed configuration file on your STB into directory /etc/opkg
+
+${REPO_URL}/${FEED_FILE}
+
+## Installation steps:
+
+- Prerequisite is an official ${DISTRO} image installed and configured on your device.
+
+
+## Notes for specific packages:
+
+### vdr-oe-utils
+This package installs utilities to run vdr without running enigma frontend.
+

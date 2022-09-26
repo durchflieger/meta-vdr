@@ -1,0 +1,15 @@
+librepfunc
+cxxtools
+libtntnet
+vdr
+vdr-plugin-dummydevice
+vdr-plugin-streamdev
+vdr-plugin-svdrpservice
+vdr-plugin-svdrposd
+vdr-plugin-epgsearch
+vdr-plugin-wirbelscan
+vdr-plugin-control
+vdr-plugin-devstatus
+vdr-plugin-markad
+vdr-plugin-live
+vdr-oe-utils

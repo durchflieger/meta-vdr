@@ -1,0 +1,26 @@
+diff --git a/epg.c b/epg.c
+index d917e66..8a68b94 100644
+--- a/epg.c
++++ b/epg.c
+@@ -17,7 +17,7 @@
+ #include "libsi/si.h"
+ 
+ #define RUNNINGSTATUSTIMEOUT 30 // seconds before the running status is considered unknown
+-#define EPGDATAWRITEDELTA   600 // seconds between writing the epg.data file
++#define EPGDATAWRITEDELTA   21600 // seconds between writing the epg.data file
+ 
+ // --- tComponent ------------------------------------------------------------
+ 
+diff --git a/vdr.c b/vdr.c
+index 38fc029..a5783b4 100644
+--- a/vdr.c
++++ b/vdr.c
+@@ -80,7 +80,7 @@
+ #define SHUTDOWNCANCELPROMPT   5 // seconds to wait in user prompt to allow canceling shutdown
+ #define RESTARTCANCELPROMPT    5 // seconds to wait in user prompt before restarting on SIGHUP
+ #define MANUALSTART          600 // seconds the next timer must be in the future to assume manual start
+-#define CHANNELSAVEDELTA     600 // seconds before saving channels.conf after automatic modifications
++#define CHANNELSAVEDELTA     21600 // seconds before saving channels.conf after automatic modifications
+ #define DEVICEREADYTIMEOUT    30 // seconds to wait until all devices are ready
+ #define MENUTIMEOUT          120 // seconds of user inactivity after which an OSD display is closed
+ #define TIMERCHECKDELTA       10 // seconds between checks for timers that need to see their channel

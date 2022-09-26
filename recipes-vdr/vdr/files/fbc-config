@@ -1,0 +1,33 @@
+#!/bin/sh
+# Apply FBC Tuner configuration
+
+. /usr/lib/vdr/config-loader.sh
+
+log="logger -t fbc-config"
+
+filter_comment() {
+  while read line ; do
+    [[ -z "$line" ]] && continue
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    echo "$line"
+  done
+}
+
+apply_config() {
+  while read frontend connect link ; do
+    prefix="/proc/stb/frontend/$frontend"
+    if [ -e $prefix/fbc_set_id -a -e $prefix/fbc_connect -a -e $prefix/fbc_connect ] ; then 
+      offset=$(< $prefix/fbc_set_id)
+      connect=$((connect + offset * 8))
+      $log "frontend ${frontend}: connect $connect link $link"
+      echo -n $connect > $prefix/fbc_connect
+      echo -n $link > $prefix/fbc_link
+    else
+      $log "frontend $frontend not found!"
+    fi
+  done
+}
+
+if [ -f $FBC_CONFIG_FILE ] ; then
+  filter_comment < $FBC_CONFIG_FILE | apply_config
+fi

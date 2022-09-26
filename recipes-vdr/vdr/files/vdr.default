@@ -1,0 +1,15 @@
+# /etc/default/vdr
+#
+# See also /usr/share/doc/vdr/README.Debian.gz
+#
+
+# Change to 1 to enable vdr's init-script
+ENABLED=0
+
+# Set Language
+#VDR_LANG=de_DE.UTF-8
+
+# Uncomment if you want a cached EPG data file
+#EPG_FILE=/var/cache/vdr/epg.data
+#EPG_BACKUP_FILE=/var/lib/vdr/epg.data
+

@@ -1,0 +1,34 @@
+#!/bin/sh
+#
+# OE VDR system utilities start-stop script
+#
+### BEGIN INIT INFO
+# Provides:          OE VDR system utilities
+# Required-Start:    $remote_fs $network $syslog
+# Required-Stop:     $remote_fs $network $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: OE system utilities for VDR is a collection of utils to run VDR instead of enigma frontend
+### END INIT INFO
+
+NAME=vdr-oe-utils
+DESC="OE VDR system utilities"
+
+DAEMON=/etc/vdr/$NAME
+
+test -x $DAEMON || exit 0
+
+case "$1" in
+    start|stop|restart|force-reload)
+	echo -n "$1 $DESC: $NAME"
+        $DAEMON $1
+	echo "."
+        ;;
+    *)
+        N=/etc/init.d/$NAME
+        echo "Usage: $N {start|stop|restart|force-reload}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

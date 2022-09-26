@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Check if active network connections are present and prevent shutdown
+# Service   Local Port
+# ssh       22
+# nfs       2049
+# samba     445
+
+log="logger -t vdr-shutdown-hook/$(basename $0)"
+
+parseNetstat() {
+  IFS=" +"
+  while read p rq sq l f s ; do
+    if [ "$s" == "ESTABLISHED" ]; then
+      case "$l" in
+        *:22|*:2049)
+          $log "prevent shutdown because of active network connection $l <-> $f"
+          echo "TRY_AGAIN=5"
+          return;;
+      esac
+    fi
+  done
+}
+
+LANG=C netstat -tn | parseNetstat

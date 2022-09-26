@@ -1,0 +1,33 @@
+#!/bin/sh
+#
+# VDR OE system utilities
+#
+
+stb_lcd_init()
+{
+    [ -e /proc/stb/lcd/mode ] && echo "0" > /proc/stb/lcd/mode
+    [ -e /proc/stb/lcd/live_enable ] && echo "disable" > /proc/stb/lcd/live_enable
+    #[ -e /proc/stb/lcd/brightness ] && echo "0" > /proc/stb/lcd/brightness
+}
+
+config_disk()
+{
+    [ -e /dev/sda ] && hdparm -B 255 -S 120 /dev/sda
+}
+
+set_rtc()
+{
+  [ -x /sbin/stb-hwclock ] && /sbin/stb-hwclock save
+}
+
+case "$1" in
+    start|restart|force-reload)
+	stb_lcd_init
+	config_disk
+	;;
+    stop)
+	set_rtc
+	;;
+esac
+
+exit 0

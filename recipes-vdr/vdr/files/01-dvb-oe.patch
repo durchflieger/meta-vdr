@@ -1,0 +1,495 @@
+diff --git a/device.c b/device.c
+index 4b9c9cc..4d24534 100644
+--- a/device.c
++++ b/device.c
+@@ -457,7 +457,7 @@ void cDevice::SetCamSlot(cCamSlot *CamSlot)
+ void cDevice::Shutdown(void)
+ {
+   deviceHooks.Clear();
+-  for (int i = 0; i < numDevices; i++) {
++  for (int i = numDevices - 1; i >= 0; i--) {
+       delete device[i];
+       device[i] = NULL;
+       }
+@@ -1913,7 +1913,10 @@ void cTSBuffer::Action(void)
+                  if (errno == EOVERFLOW)
+                     esyslog("ERROR: driver buffer overflow on device %d", deviceNumber);
+                  else {
+-                    LOG_ERROR;
++                    if (errno == EBADF)
++                       dsyslog("dvr already closed on device %d", deviceNumber);
++		    else
++                       LOG_ERROR;
+                     break;
+                     }
+                  }
+diff --git a/dvbdevice.c b/dvbdevice.c
+index 2f312c0..c5682e6 100644
+--- a/dvbdevice.c
++++ b/dvbdevice.c
+@@ -199,6 +199,17 @@ int MapToDriver(int Value, const tDvbParameterMap *Map)
+   return -1;
+ }
+ 
++static int getProcData(const char* filename)
++{
++  int res = -1;
++  FILE *fp = fopen(filename, "r");
++  if (fp) {
++     fscanf(fp, "%d", &res);
++     fclose(fp);
++     }
++  return res;
++}
++
+ // --- cDvbTransponderParameters ---------------------------------------------
+ 
+ cDvbTransponderParameters::cDvbTransponderParameters(const char *Parameters)
+@@ -373,6 +384,16 @@ cDvbFrontend::cDvbFrontend(int Adapter, int Frontend)
+   Open();
+   QueryDeliverySystems();
+   Close();
++
++  int f = DvbOpen(DEV_DVB_DEMUX, adapter, frontend, O_RDWR | O_NONBLOCK, true);
++  if (f >= 0) {
++    int s = DMX_SOURCE_FRONT0 + frontend;
++    if (ioctl(f, DMX_SET_SOURCE, &s) < 0)
++       esyslog("ERROR: can't set source for demux  %d/%d", adapter, frontend);
++    else
++       dsyslog("demux %d/%d set source %d", adapter, frontend, s);
++    close(f);
++    }
+ }
+ 
+ cDvbFrontend::~cDvbFrontend()
+@@ -568,6 +589,9 @@ private:
+   void ResetToneAndVoltage(void);
+   bool SetFrontend(void);
+   virtual void Action(void);
++  bool fbcTuner, fbcLinked;
++  mutable int fd_diseqc;
++  cMutex *mutex_diseqc;
+ public:
+   cDvbTuner(const cDvbDevice *Device, int Adapter, int Frontend);
+   virtual ~cDvbTuner();
+@@ -590,6 +614,10 @@ public:
+   bool GetSignalStats(int &Valid, double *Strength = NULL, double *Cnr = NULL, double *BerPre = NULL, double *BerPost = NULL, double *Per = NULL, int *Status = NULL) const;
+   int GetSignalStrength(void) const;
+   int GetSignalQuality(void) const;
++  cMutex *DiseqcTunerMutex(void) const { return &mutex; }
++  int OpenDiseqcFrontend(void) const { return fd_diseqc; }
++  bool IsFBCTuner(void) const { return fbcTuner; }
++  bool IsFBCRootTuner(void) const { return fbcTuner && !fbcLinked; }
+   };
+ 
+ cMutex cDvbTuner::bondMutex;
+@@ -641,6 +669,52 @@ cDvbTuner::cDvbTuner(const cDvbDevice *Device, int Adapter, int Frontend)
+   // Open default frontend:
+   dvbFrontend = dvbFrontends[0];
+   fd_frontend = dvbFrontend->Open();
++
++  // Detect FBC Tuner
++  mutex_diseqc = NULL;
++  fd_diseqc = -1;
++  fbcTuner = false;
++  fbcLinked = false;
++  if (adapter == 0 && (ProvidesDeliverySystem(SYS_DVBS) || ProvidesDeliverySystem(SYS_DVBS2))) {
++     char procFileName[128];
++     snprintf(procFileName, sizeof(procFileName), "/proc/stb/frontend/%d/fbc_connect", frontend);
++     int connect = getProcData(procFileName);
++
++     snprintf(procFileName, sizeof(procFileName), "/proc/stb/frontend/%d/fbc_link", frontend);
++     int link = getProcData(procFileName);
++
++     if (connect != -1 && link != -1) {
++        dsyslog("FBC tuner %d/%d: connect: %d, link: %d", adapter, frontend, connect, link);
++        fbcTuner = true;
++        fbcLinked = (link == 1);
++        if (fbcLinked) {
++           for (int i = 0; i < cDevice::NumDevices(); i++) {
++              if (cDevice *d = cDevice::GetDevice(i)) {
++                 if (cDvbDevice *dd = dynamic_cast<cDvbDevice *>(d)) {
++                    if (dd->Adapter() == adapter && dd->Frontend() == connect) {
++                       if (dd->IsFBCRootTuner()) {
++                          dsyslog("FBC tuner %d/%d: using root tuner %d/%d for diseqc", adapter, frontend, dd->Adapter(), dd->Frontend());
++                          mutex_diseqc = dd->DiseqcTunerMutex();
++                          fd_diseqc = dd->OpenDiseqcFrontend();
++                          }
++                       break;
++                       }
++                    }
++                 }
++              }
++           if (fd_diseqc < 0)
++              esyslog("ERROR: linked FBC tuner %d/%d: root tuner not found!", adapter, frontend);
++           }
++        }
++     }
++  if (fd_diseqc == -1)
++     fd_diseqc = fd_frontend;
++
++  if (IsFBCRootTuner()) {
++     CHECK(ioctl(fd_diseqc, FE_SET_VOLTAGE, SEC_VOLTAGE_13));
++     CHECK(ioctl(fd_diseqc, FE_SET_TONE, SEC_TONE_OFF));
++     lnbPowerTurnedOn = true;
++     }
+   SetDescription("frontend %d/%s tuner", adapter, *FrontendNumbers);
+   Start();
+ }
+@@ -691,6 +765,7 @@ bool cDvbTuner::ProvidesFrontend(const cChannel *Channel, bool Activate) const
+             dvbFrontend->Close();
+             dvbFrontend = dvbFrontends[i];
+             fd_frontend = dvbFrontend->Open();
++            fd_diseqc = fd_frontend;
+             frontend = i;
+             dsyslog("using frontend %d/%d", adapter, frontend);
+             lastUncValue = 0;
+@@ -707,11 +782,17 @@ bool cDvbTuner::Bond(cDvbTuner *Tuner)
+ {
+   cMutexLock MutexLock(&bondMutex);
+   if (!bondedTuner) {
+-     ResetToneAndVoltage();
+-     bondedMaster = false; // makes sure we don't disturb an existing master
++     bondedMaster = IsFBCRootTuner();
+      bondedTuner = Tuner->bondedTuner ? Tuner->bondedTuner : Tuner;
+      Tuner->bondedTuner = this;
+      dsyslog("tuner %d/%d bonded with tuner %d/%d", adapter, frontend, bondedTuner->adapter, bondedTuner->frontend);
++     if (bondedMaster)
++        dsyslog("tuner %d/%d is now bonded master", adapter, frontend);
++     else if (Tuner->IsFBCRootTuner()) {
++        Tuner->bondedMaster = true;
++        dsyslog("tuner %d/%d is now bonded master", Tuner->adapter, Tuner->frontend);
++        }
++     ResetToneAndVoltage();
+      return true;
+      }
+   else
+@@ -1469,7 +1550,7 @@ cPositioner *cDvbTuner::GetPositioner(void)
+ {
+   if (!positioner) {
+      positioner = cPositioner::GetPositioner();
+-     positioner->SetFrontend(fd_frontend);
++     positioner->SetFrontend(fd_diseqc);
+      }
+   return positioner;
+ }
+@@ -1477,10 +1558,12 @@ cPositioner *cDvbTuner::GetPositioner(void)
+ void cDvbTuner::ExecuteDiseqc(const cDiseqc *Diseqc, int *Frequency)
+ {
+   if (!lnbPowerTurnedOn) {
+-     CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, SEC_VOLTAGE_13)); // must explicitly turn on LNB power
++     CHECK(ioctl(fd_diseqc, FE_SET_VOLTAGE, SEC_VOLTAGE_13)); // must explicitly turn on LNB power
+      lnbPowerTurnedOn = true;
+      }
+   static cMutex Mutex;
++  if (mutex_diseqc)
++     mutex_diseqc->Lock();
+   if (Diseqc->IsScr())
+      Mutex.Lock();
+   struct dvb_diseqc_master_cmd cmd;
+@@ -1496,13 +1579,13 @@ void cDvbTuner::ExecuteDiseqc(const cDiseqc *Diseqc, int *Frequency)
+          }
+       bool d = i >= diseqcOffset;
+       switch (da) {
+-        case cDiseqc::daToneOff:   if (d) CHECK(ioctl(fd_frontend, FE_SET_TONE, SEC_TONE_OFF)); break;
+-        case cDiseqc::daToneOn:    if (d) CHECK(ioctl(fd_frontend, FE_SET_TONE, SEC_TONE_ON)); break;
+-        case cDiseqc::daVoltage13: if (d) CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, SEC_VOLTAGE_13)); break;
+-        case cDiseqc::daVoltage18: if (d) CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, SEC_VOLTAGE_18)); break;
+-        case cDiseqc::daMiniA:     if (d) CHECK(ioctl(fd_frontend, FE_DISEQC_SEND_BURST, SEC_MINI_A)); break;
+-        case cDiseqc::daMiniB:     if (d) CHECK(ioctl(fd_frontend, FE_DISEQC_SEND_BURST, SEC_MINI_B)); break;
+-        case cDiseqc::daCodes:     if (d) CHECK(ioctl(fd_frontend, FE_DISEQC_SEND_MASTER_CMD, &cmd)); break;
++        case cDiseqc::daToneOff:   if (d) CHECK(ioctl(fd_diseqc, FE_SET_TONE, SEC_TONE_OFF)); break;
++        case cDiseqc::daToneOn:    if (d) CHECK(ioctl(fd_diseqc, FE_SET_TONE, SEC_TONE_ON)); break;
++        case cDiseqc::daVoltage13: if (d) CHECK(ioctl(fd_diseqc, FE_SET_VOLTAGE, SEC_VOLTAGE_13)); break;
++        case cDiseqc::daVoltage18: if (d) CHECK(ioctl(fd_diseqc, FE_SET_VOLTAGE, SEC_VOLTAGE_18)); break;
++        case cDiseqc::daMiniA:     if (d) CHECK(ioctl(fd_diseqc, FE_DISEQC_SEND_BURST, SEC_MINI_A)); break;
++        case cDiseqc::daMiniB:     if (d) CHECK(ioctl(fd_diseqc, FE_DISEQC_SEND_BURST, SEC_MINI_B)); break;
++        case cDiseqc::daCodes:     if (d) CHECK(ioctl(fd_diseqc, FE_DISEQC_SEND_MASTER_CMD, &cmd)); break;
+         case cDiseqc::daPositionN: if ((Positioner = GetPositioner()) != NULL) {
+                                       if (d) {
+                                          Positioner->GotoPosition(Diseqc->Position(), cSource::Position(channel.Source()));
+@@ -1525,16 +1608,23 @@ void cDvbTuner::ExecuteDiseqc(const cDiseqc *Diseqc, int *Frequency)
+          diseqcOffset = i + 1;
+       }
+   positioner = Positioner;
+-  if (scr && !Break)
+-     ResetToneAndVoltage(); // makes sure we don't block the bus!
++  if ((IsFBCTuner() || Diseqc->IsScr()) && !Break) {
++     // makes sure we don't block the bus!
++     CHECK(ioctl(fd_diseqc, FE_SET_VOLTAGE, SEC_VOLTAGE_13));
++     CHECK(ioctl(fd_diseqc, FE_SET_TONE, SEC_TONE_OFF));
++     }
+   if (Diseqc->IsScr())
+      Mutex.Unlock();
++  if (mutex_diseqc)
++     mutex_diseqc->Unlock();
+ }
+ 
+ void cDvbTuner::ResetToneAndVoltage(void)
+ {
+-  CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, bondedTuner ? SEC_VOLTAGE_OFF : SEC_VOLTAGE_13));
+-  CHECK(ioctl(fd_frontend, FE_SET_TONE, SEC_TONE_OFF));
++  if (!IsFBCTuner()) {
++     CHECK(ioctl(fd_diseqc, FE_SET_VOLTAGE, bondedTuner ? SEC_VOLTAGE_OFF : SEC_VOLTAGE_13));
++     CHECK(ioctl(fd_diseqc, FE_SET_TONE, SEC_TONE_OFF));
++     }
+ }
+ 
+ bool cDvbTuner::SetFrontend(void)
+@@ -1592,12 +1682,12 @@ bool cDvbTuner::SetFrontend(void)
+            tone = SEC_TONE_ON;
+            }
+         int volt = (dtp.Polarization() == 'V' || dtp.Polarization() == 'R') ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
+-        if (!IsBondedMaster()) {
+-           tone = SEC_TONE_OFF;
+-           volt = SEC_VOLTAGE_13;
++        if (IsBondedMaster()) {
++           CHECK(ioctl(fd_diseqc, FE_SET_VOLTAGE, volt));
++           CHECK(ioctl(fd_diseqc, FE_SET_TONE, tone));
+            }
+-        CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, volt));
+-        CHECK(ioctl(fd_frontend, FE_SET_TONE, tone));
++        else
++           ResetToneAndVoltage();
+         }
+      frequency = abs(frequency); // Allow for C-band, where the frequency is less than the LOF
+ 
+@@ -1612,7 +1702,8 @@ bool cDvbTuner::SetFrontend(void)
+         SETCMD(DTV_PILOT, dtp.Pilot());
+         SETCMD(DTV_ROLLOFF, dtp.RollOff());
+         if (DvbApiVersion >= 0x0508)
+-           SETCMD(DTV_STREAM_ID, dtp.StreamId());
++           SETCMD(DTV_STREAM_ID, NO_STREAM_ID_FILTER);
++           //SETCMD(DTV_STREAM_ID, dtp.StreamId());
+         }
+      else {
+         // DVB-S
+@@ -1829,6 +1920,7 @@ cOsdItem *cDvbSourceParam::GetOsdItem(void)
+ // --- cDvbDevice ------------------------------------------------------------
+ 
+ bool cDvbDevice::useDvbDevices = true;
++int cDvbDevice::dvrBufSize = 0;
+ int cDvbDevice::setTransferModeForDolbyDigital = 1;
+ cMutex cDvbDevice::bondMutex;
+ 
+@@ -1841,6 +1933,7 @@ cDvbDevice::cDvbDevice(int Adapter, int Frontend)
+   bondedDevice = NULL;
+   needsDetachBondedReceivers = false;
+   tsBuffer = NULL;
++  fd_dvr_demux = -1;
+ 
+   // Common Interface:
+ 
+@@ -2094,6 +2187,21 @@ bool cDvbDevice::BondingOk(const cChannel *Channel, bool ConsiderOccupied) const
+   return true;
+ }
+ 
++cMutex* cDvbDevice::DiseqcTunerMutex(void) const
++{
++   return dvbTuner ? dvbTuner->DiseqcTunerMutex() : NULL;
++}
++
++int cDvbDevice::OpenDiseqcFrontend(void) const
++{
++   return dvbTuner ? dvbTuner->OpenDiseqcFrontend() : -1;
++}
++
++bool cDvbDevice::IsFBCRootTuner(void) const
++{
++   return dvbTuner ? dvbTuner->IsFBCRootTuner() : false;
++}
++
+ bool cDvbDevice::HasCi(void)
+ {
+   return ciAdapter;
+@@ -2102,38 +2210,55 @@ bool cDvbDevice::HasCi(void)
+ bool cDvbDevice::SetPid(cPidHandle *Handle, int Type, bool On)
+ {
+   if (Handle->pid) {
+-     dmx_pes_filter_params pesFilterParams;
+-     memset(&pesFilterParams, 0, sizeof(pesFilterParams));
+      if (On) {
+-        if (Handle->handle < 0) {
+-           Handle->handle = DvbOpen(DEV_DVB_DEMUX, adapter, frontend, O_RDWR | O_NONBLOCK, true);
+-           if (Handle->handle < 0) {
++        if (fd_dvr_demux < 0) {
++           fd_dvr_demux = DvbOpen(DEV_DVB_DEMUX, adapter, frontend, O_RDWR | O_NONBLOCK, true);
++           if (fd_dvr_demux < 0) {
+               LOG_ERROR;
+               return false;
+               }
+-           }
+-        pesFilterParams.pid     = Handle->pid;
+-        pesFilterParams.input   = DMX_IN_FRONTEND;
+-        pesFilterParams.output  = DMX_OUT_TS_TAP;
+-        pesFilterParams.pes_type= DMX_PES_OTHER;
+-        pesFilterParams.flags   = DMX_IMMEDIATE_START;
+-        if (ioctl(Handle->handle, DMX_SET_PES_FILTER, &pesFilterParams) < 0) {
+-           LOG_ERROR;
+-           return false;
+-           }
+-        }
+-     else if (!Handle->used) {
+-        CHECK(ioctl(Handle->handle, DMX_STOP));
+-        if (Type <= ptTeletext) {
+-           pesFilterParams.pid     = 0x1FFF;
++           int s = dvrBufSize;
++           if (s > 0 && ioctl(fd_dvr_demux, DMX_SET_BUFFER_SIZE, s) < 0) {
++              LOG_ERROR;
++	      s = -1;
++	      }
++           dmx_pes_filter_params pesFilterParams;
++           memset(&pesFilterParams, 0, sizeof(pesFilterParams));
++           pesFilterParams.pid     = Handle->pid;
+            pesFilterParams.input   = DMX_IN_FRONTEND;
+-           pesFilterParams.output  = DMX_OUT_DECODER;
++           pesFilterParams.output  = DMX_OUT_TSDEMUX_TAP;
+            pesFilterParams.pes_type= DMX_PES_OTHER;
+            pesFilterParams.flags   = DMX_IMMEDIATE_START;
+-           CHECK(ioctl(Handle->handle, DMX_SET_PES_FILTER, &pesFilterParams));
++           if (ioctl(fd_dvr_demux, DMX_SET_PES_FILTER, &pesFilterParams) < 0) {
++              LOG_ERROR;
++              return false;
++              }
++           dsyslog("dvr demux %d/%d start buffer size %d pid %d", adapter, frontend, s, Handle->pid);
+            }
+-        close(Handle->handle);
+-        Handle->handle = -1;
++	else {
++	   uint16_t p = Handle->pid;
++           if (ioctl(fd_dvr_demux, DMX_ADD_PID, &p) < 0) {
++              LOG_ERROR;
++              return false;
++              }
++              dsyslog("dvr demux %d/%d add pid %d", adapter, frontend, Handle->pid);
++	   }
++        }
++     else if (!Handle->used) {
++        for (int i = 0; i < MAXPIDHANDLES; i++) {
++            if (pidHandles[i].used) {
++	       uint16_t p = Handle->pid;
++               if (ioctl(fd_dvr_demux, DMX_REMOVE_PID, &p) < 0)
++                  LOG_ERROR;
++               else
++                  dsyslog("dvr demux %d/%d remove pid %d", adapter, frontend, Handle->pid);
++               return true;
++	      }
++	   }
++        CHECK(ioctl(fd_dvr_demux, DMX_STOP));
++        close(fd_dvr_demux);
++        fd_dvr_demux = -1;
++        dsyslog("dvr demux %d/%d stop", adapter, frontend);
+         }
+      }
+   return true;
+@@ -2319,9 +2444,10 @@ void cDvbDevice::SetTransferModeForDolbyDigital(int Mode)
+ bool cDvbDevice::OpenDvr(void)
+ {
+   CloseDvr();
+-  fd_dvr = DvbOpen(DEV_DVB_DVR, adapter, frontend, O_RDONLY | O_NONBLOCK, true);
+-  if (fd_dvr >= 0)
++  fd_dvr = fd_dvr_demux;
++  if (fd_dvr >= 0) {
+      tsBuffer = new cTSBuffer(fd_dvr, TSBUFFERSIZE, DeviceNumber() + 1);
++     }
+   return fd_dvr >= 0;
+ }
+ 
+@@ -2330,7 +2456,6 @@ void cDvbDevice::CloseDvr(void)
+   if (fd_dvr >= 0) {
+      delete tsBuffer;
+      tsBuffer = NULL;
+-     close(fd_dvr);
+      fd_dvr = -1;
+      }
+ }
+diff --git a/dvbdevice.h b/dvbdevice.h
+index b7d899d..7937e75 100644
+--- a/dvbdevice.h
++++ b/dvbdevice.h
+@@ -173,6 +173,7 @@ private:
+          ///< Probes for existing DVB devices.
+ public:
+   static bool useDvbDevices;
++  static int dvrBufSize;
+   static bool Initialize(void);
+          ///< Initializes the DVB devices.
+          ///< Must be called before accessing any DVB functions.
+@@ -244,6 +245,9 @@ public:
+   virtual const cChannel *GetCurrentlyTunedTransponder(void) const;
+   virtual bool IsTunedToTransponder(const cChannel *Channel) const;
+   virtual bool MaySwitchTransponder(const cChannel *Channel) const;
++  virtual cMutex *DiseqcTunerMutex(void) const;
++  virtual int OpenDiseqcFrontend(void) const;
++  virtual bool IsFBCRootTuner(void) const;
+ protected:
+   virtual bool SetChannelDevice(const cChannel *Channel, bool LiveView);
+ public:
+@@ -251,6 +255,8 @@ public:
+ 
+ // PID handle facilities
+ 
++private:
++  int fd_dvr_demux;
+ protected:
+   virtual bool SetPid(cPidHandle *Handle, int Type, bool On);
+ 
+diff --git a/vdr.c b/vdr.c
+index 06c0c9a..38fc029 100644
+--- a/vdr.c
++++ b/vdr.c
+@@ -217,6 +217,7 @@ int main(int argc, char *argv[])
+ #define DEFAULTPLUGINDIR PLUGINDIR
+ #define DEFAULTLOCDIR LOCDIR
+ #define DEFAULTEPGDATAFILENAME "epg.data"
++#define DEFAULTDVRBUFSIZE (1024*1024)
+ 
+   bool StartedAsRoot = false;
+   const char *VdrUser = NULL;
+@@ -253,6 +254,7 @@ int main(int argc, char *argv[])
+   time_t SdWatchdog = 0;
+   int SdWatchdogTimeout = 0;
+ #endif
++  cDvbDevice::dvrBufSize = DEFAULTDVRBUFSIZE;
+ 
+   cArgs *Args = NULL;
+   if (argc == 1) {
+@@ -273,6 +275,7 @@ int main(int argc, char *argv[])
+       { "config",   required_argument, NULL, 'c' },
+       { "daemon",   no_argument,       NULL, 'd' },
+       { "device",   required_argument, NULL, 'D' },
++      { "dvrbufsize",   required_argument, NULL, 'D' | 0x100 },
+       { "dirnames", required_argument, NULL, 'd' | 0x100 },
+       { "edit",     required_argument, NULL, 'e' | 0x100 },
+       { "epgfile",  required_argument, NULL, 'E' },
+@@ -333,6 +336,14 @@ int main(int argc, char *argv[])
+                        }
+                     fprintf(stderr, "vdr: invalid DVB device number: %s\n", optarg);
+                     return 2;
++          case 'D' | 0x100:
++		    if (isnumber(optarg))
++                       cDvbDevice::dvrBufSize = atoi(optarg);
++                    else {
++                       fprintf(stderr, "vdr: invalid dvr buffer size: %s\n", optarg);
++                       return 2;
++                       }
++                    break;
+           case 'd' | 0x100: {
+                     char *s = optarg;
+                     if (*s != ',') {
+@@ -558,6 +569,7 @@ int main(int argc, char *argv[])
+                "                           character table (for instance ISO-8859-9)\n"
+                "  -c DIR,   --config=DIR   read config files from DIR (default: %s)\n"
+                "  -d,       --daemon       run in daemon mode\n"
++               "            --dvrbufsize   DVR device buffer size (default %d)\n"
+                "  -D NUM,   --device=NUM   use only the given DVB device (NUM = 0, 1, 2...)\n"
+                "                           there may be several -D options (default: all DVB\n"
+                "                           devices will be used); if -D- is given, no DVB\n"
+@@ -624,6 +636,7 @@ int main(int argc, char *argv[])
+                "\n",
+                DEFAULTCACHEDIR,
+                DEFAULTCONFDIR,
++	       DEFAULTDVRBUFSIZE,
+                PATH_MAX - 1,
+                NAME_MAX,
+                DEFAULTEPGDATAFILENAME,
