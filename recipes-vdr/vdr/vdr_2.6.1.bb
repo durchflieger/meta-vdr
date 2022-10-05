@@ -1,4 +1,4 @@
-PR = "r2"
+PR = "r3"
 MAINTAINER = "df"
 SECTION = "multimedia"
 
@@ -100,7 +100,7 @@ CONFFILES:${PN} = "${sysconfdir}/default/vdr \
 INSANE_SKIP += "pkgconfig"
 
 INITSCRIPT_NAME = "vdr"
-INITSCRIPT_PARAMS = "start 80 5 . stop 80 0 6 1 3 ."
+INITSCRIPT_PARAMS = "start 80 5 . stop 20 0 6 1 3 ."
 
 do_compile () {
   oe_runmake vdr i18n vdr.pc include-dir
