@@ -14,12 +14,10 @@ HOMEPAGE = "https://github.com/kfb77/vdr-plugin-markad"
 LICENSE = "GPLv2"
 LIC_FILES_CHKSUM = "file://COPYING;md5=2d34f68dad6fc14cfc1e9eec76fa9964"
 
-SRC_URI = "git://github.com/kfb77/vdr-plugin-markad;protocol=https;branch=V03 \
-  file://02-fix-sscanf-getline-handling.patch \
-"
+SRC_URI = "git://github.com/kfb77/vdr-plugin-markad;protocol=https;branch=V03"
 
 #SRCREV="v${PV}"
-SRCREV="4a77f7f030634ea2c2e693248ec4247f940f9ac5"
+SRCREV="efe3f2012a9cab6440ee9f5d88e7bda4888eeedd"
 
 S = "${WORKDIR}/git"
 
