@@ -24,10 +24,18 @@ index 4b9c9cc..4d24534 100644
                      }
                   }
 diff --git a/dvbdevice.c b/dvbdevice.c
-index 2f312c0..c5682e6 100644
+index 2f312c0..8282819 100644
 --- a/dvbdevice.c
 +++ b/dvbdevice.c
-@@ -199,6 +199,17 @@ int MapToDriver(int Value, const tDvbParameterMap *Map)
+@@ -20,6 +20,7 @@
+ #include "dvbci.h"
+ #include "menuitems.h"
+ #include "sourceparams.h"
++#include "shutdown.h"
+ 
+ static int DvbApiVersion = 0x0000; // the version of the DVB driver actually in use (will be determined by the first device created)
+ 
+@@ -199,6 +200,17 @@ int MapToDriver(int Value, const tDvbParameterMap *Map)
    return -1;
  }
  
@@ -45,7 +53,7 @@ index 2f312c0..c5682e6 100644
  // --- cDvbTransponderParameters ---------------------------------------------
  
  cDvbTransponderParameters::cDvbTransponderParameters(const char *Parameters)
-@@ -373,6 +384,16 @@ cDvbFrontend::cDvbFrontend(int Adapter, int Frontend)
+@@ -373,6 +385,16 @@ cDvbFrontend::cDvbFrontend(int Adapter, int Frontend)
    Open();
    QueryDeliverySystems();
    Close();
@@ -62,7 +70,7 @@ index 2f312c0..c5682e6 100644
  }
  
  cDvbFrontend::~cDvbFrontend()
-@@ -568,6 +589,9 @@ private:
+@@ -568,6 +590,9 @@ private:
    void ResetToneAndVoltage(void);
    bool SetFrontend(void);
    virtual void Action(void);
@@ -72,7 +80,7 @@ index 2f312c0..c5682e6 100644
  public:
    cDvbTuner(const cDvbDevice *Device, int Adapter, int Frontend);
    virtual ~cDvbTuner();
-@@ -590,6 +614,10 @@ public:
+@@ -590,6 +615,10 @@ public:
    bool GetSignalStats(int &Valid, double *Strength = NULL, double *Cnr = NULL, double *BerPre = NULL, double *BerPost = NULL, double *Per = NULL, int *Status = NULL) const;
    int GetSignalStrength(void) const;
    int GetSignalQuality(void) const;
@@ -83,7 +91,7 @@ index 2f312c0..c5682e6 100644
    };
  
  cMutex cDvbTuner::bondMutex;
-@@ -641,6 +669,52 @@ cDvbTuner::cDvbTuner(const cDvbDevice *Device, int Adapter, int Frontend)
+@@ -641,6 +670,52 @@ cDvbTuner::cDvbTuner(const cDvbDevice *Device, int Adapter, int Frontend)
    // Open default frontend:
    dvbFrontend = dvbFrontends[0];
    fd_frontend = dvbFrontend->Open();
@@ -136,7 +144,7 @@ index 2f312c0..c5682e6 100644
    SetDescription("frontend %d/%s tuner", adapter, *FrontendNumbers);
    Start();
  }
-@@ -691,6 +765,7 @@ bool cDvbTuner::ProvidesFrontend(const cChannel *Channel, bool Activate) const
+@@ -691,6 +766,7 @@ bool cDvbTuner::ProvidesFrontend(const cChannel *Channel, bool Activate) const
              dvbFrontend->Close();
              dvbFrontend = dvbFrontends[i];
              fd_frontend = dvbFrontend->Open();
@@ -144,7 +152,7 @@ index 2f312c0..c5682e6 100644
              frontend = i;
              dsyslog("using frontend %d/%d", adapter, frontend);
              lastUncValue = 0;
-@@ -707,11 +782,17 @@ bool cDvbTuner::Bond(cDvbTuner *Tuner)
+@@ -707,11 +783,17 @@ bool cDvbTuner::Bond(cDvbTuner *Tuner)
  {
    cMutexLock MutexLock(&bondMutex);
    if (!bondedTuner) {
@@ -164,7 +172,7 @@ index 2f312c0..c5682e6 100644
       return true;
       }
    else
-@@ -1469,7 +1550,7 @@ cPositioner *cDvbTuner::GetPositioner(void)
+@@ -1469,7 +1551,7 @@ cPositioner *cDvbTuner::GetPositioner(void)
  {
    if (!positioner) {
       positioner = cPositioner::GetPositioner();
@@ -173,7 +181,7 @@ index 2f312c0..c5682e6 100644
       }
    return positioner;
  }
-@@ -1477,10 +1558,12 @@ cPositioner *cDvbTuner::GetPositioner(void)
+@@ -1477,10 +1559,12 @@ cPositioner *cDvbTuner::GetPositioner(void)
  void cDvbTuner::ExecuteDiseqc(const cDiseqc *Diseqc, int *Frequency)
  {
    if (!lnbPowerTurnedOn) {
@@ -187,7 +195,7 @@ index 2f312c0..c5682e6 100644
    if (Diseqc->IsScr())
       Mutex.Lock();
    struct dvb_diseqc_master_cmd cmd;
-@@ -1496,13 +1579,13 @@ void cDvbTuner::ExecuteDiseqc(const cDiseqc *Diseqc, int *Frequency)
+@@ -1496,13 +1580,13 @@ void cDvbTuner::ExecuteDiseqc(const cDiseqc *Diseqc, int *Frequency)
           }
        bool d = i >= diseqcOffset;
        switch (da) {
@@ -208,7 +216,7 @@ index 2f312c0..c5682e6 100644
          case cDiseqc::daPositionN: if ((Positioner = GetPositioner()) != NULL) {
                                        if (d) {
                                           Positioner->GotoPosition(Diseqc->Position(), cSource::Position(channel.Source()));
-@@ -1525,16 +1608,23 @@ void cDvbTuner::ExecuteDiseqc(const cDiseqc *Diseqc, int *Frequency)
+@@ -1525,16 +1609,23 @@ void cDvbTuner::ExecuteDiseqc(const cDiseqc *Diseqc, int *Frequency)
           diseqcOffset = i + 1;
        }
    positioner = Positioner;
@@ -236,7 +244,7 @@ index 2f312c0..c5682e6 100644
  }
  
  bool cDvbTuner::SetFrontend(void)
-@@ -1592,12 +1682,12 @@ bool cDvbTuner::SetFrontend(void)
+@@ -1592,12 +1683,12 @@ bool cDvbTuner::SetFrontend(void)
             tone = SEC_TONE_ON;
             }
          int volt = (dtp.Polarization() == 'V' || dtp.Polarization() == 'R') ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
@@ -254,7 +262,7 @@ index 2f312c0..c5682e6 100644
          }
       frequency = abs(frequency); // Allow for C-band, where the frequency is less than the LOF
  
-@@ -1612,7 +1702,8 @@ bool cDvbTuner::SetFrontend(void)
+@@ -1612,7 +1703,8 @@ bool cDvbTuner::SetFrontend(void)
          SETCMD(DTV_PILOT, dtp.Pilot());
          SETCMD(DTV_ROLLOFF, dtp.RollOff());
          if (DvbApiVersion >= 0x0508)
@@ -264,7 +272,7 @@ index 2f312c0..c5682e6 100644
          }
       else {
          // DVB-S
-@@ -1829,6 +1920,7 @@ cOsdItem *cDvbSourceParam::GetOsdItem(void)
+@@ -1829,6 +1921,7 @@ cOsdItem *cDvbSourceParam::GetOsdItem(void)
  // --- cDvbDevice ------------------------------------------------------------
  
  bool cDvbDevice::useDvbDevices = true;
@@ -272,7 +280,7 @@ index 2f312c0..c5682e6 100644
  int cDvbDevice::setTransferModeForDolbyDigital = 1;
  cMutex cDvbDevice::bondMutex;
  
-@@ -1841,6 +1933,7 @@ cDvbDevice::cDvbDevice(int Adapter, int Frontend)
+@@ -1841,6 +1934,7 @@ cDvbDevice::cDvbDevice(int Adapter, int Frontend)
    bondedDevice = NULL;
    needsDetachBondedReceivers = false;
    tsBuffer = NULL;
@@ -280,7 +288,7 @@ index 2f312c0..c5682e6 100644
  
    // Common Interface:
  
-@@ -2094,6 +2187,21 @@ bool cDvbDevice::BondingOk(const cChannel *Channel, bool ConsiderOccupied) const
+@@ -2094,6 +2188,21 @@ bool cDvbDevice::BondingOk(const cChannel *Channel, bool ConsiderOccupied) const
    return true;
  }
  
@@ -302,7 +310,7 @@ index 2f312c0..c5682e6 100644
  bool cDvbDevice::HasCi(void)
  {
    return ciAdapter;
-@@ -2102,38 +2210,55 @@ bool cDvbDevice::HasCi(void)
+@@ -2102,38 +2211,55 @@ bool cDvbDevice::HasCi(void)
  bool cDvbDevice::SetPid(cPidHandle *Handle, int Type, bool On)
  {
    if (Handle->pid) {
@@ -382,7 +390,15 @@ index 2f312c0..c5682e6 100644
          }
       }
    return true;
-@@ -2319,9 +2444,10 @@ void cDvbDevice::SetTransferModeForDolbyDigital(int Mode)
+@@ -2162,6 +2288,7 @@ int cDvbDevice::OpenFilter(u_short Pid, u_char Tid, u_char Mask)
+      else {
+         esyslog("ERROR: can't set filter (pid=%d, tid=%02X, mask=%02X): %m", Pid, Tid, Mask);
+         close(f);
++	ShutdownHandler.Exit(3);
+         }
+      }
+   else
+@@ -2319,9 +2446,10 @@ void cDvbDevice::SetTransferModeForDolbyDigital(int Mode)
  bool cDvbDevice::OpenDvr(void)
  {
    CloseDvr();
@@ -395,7 +411,7 @@ index 2f312c0..c5682e6 100644
    return fd_dvr >= 0;
  }
  
-@@ -2330,7 +2456,6 @@ void cDvbDevice::CloseDvr(void)
+@@ -2330,7 +2458,6 @@ void cDvbDevice::CloseDvr(void)
    if (fd_dvr >= 0) {
       delete tsBuffer;
       tsBuffer = NULL;

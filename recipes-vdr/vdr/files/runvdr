@@ -20,6 +20,12 @@ while (true) do
             logger -t runvdr "stopping after fatal fail ($ERROR)"
             exit
         ;;
+        3)
+            ERROR=`cat "$VDR_ERR"`
+            logger -t runvdr "stopping after dvb device fail ($ERROR)"
+	    [ -x /etc/vdr/dvbdevicefailure ] && /etc/vdr/dvbdevicefailure
+            exit
+        ;;
     esac
 
     logger -t runvdr "restarting VDR"
