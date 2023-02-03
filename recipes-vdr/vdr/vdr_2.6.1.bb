@@ -1,4 +1,4 @@
-PR = "r6"
+PR = "r7"
 MAINTAINER = "df"
 SECTION = "multimedia"
 

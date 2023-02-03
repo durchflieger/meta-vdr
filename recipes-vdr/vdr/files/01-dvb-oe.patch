@@ -24,7 +24,7 @@ index 4b9c9cc..4d24534 100644
                      }
                   }
 diff --git a/dvbdevice.c b/dvbdevice.c
-index 2f312c0..791b876 100644
+index 2f312c0..23d99f8 100644
 --- a/dvbdevice.c
 +++ b/dvbdevice.c
 @@ -20,6 +20,7 @@
@@ -328,7 +328,7 @@ index 2f312c0..791b876 100644
  bool cDvbDevice::HasCi(void)
  {
    return ciAdapter;
-@@ -2102,38 +2213,54 @@ bool cDvbDevice::HasCi(void)
+@@ -2102,54 +2213,68 @@ bool cDvbDevice::HasCi(void)
  bool cDvbDevice::SetPid(cPidHandle *Handle, int Type, bool On)
  {
    if (Handle->pid) {
@@ -407,7 +407,26 @@ index 2f312c0..791b876 100644
          }
       }
    return true;
-@@ -2157,11 +2284,14 @@ int cDvbDevice::OpenFilter(u_short Pid, u_char Tid, u_char Mask)
+ }
+ 
+-#define RB_NUM_SECTIONS 8 // default: 2 sections = 8192 bytes
++#define RB_NUM_SECTIONS 16 // default: 2 sections = 8192 bytes
+ 
+ int cDvbDevice::OpenFilter(u_short Pid, u_char Tid, u_char Mask)
+ {
+   cString FileName = DvbName(DEV_DVB_DEMUX, adapter, frontend);
+   int f = open(FileName, O_RDWR | O_NONBLOCK);
+   if (f >= 0) {
+-     if (Pid == EITPID) { // increase ringbuffer size for EIT
+-        if (ioctl(f, DMX_SET_BUFFER_SIZE, MAX_SECTION_SIZE * RB_NUM_SECTIONS) < 0)
+-           dsyslog("OpenFilter (pid=%d, tid=%02X): ioctl DMX_SET_BUFFER_SIZE failed", Pid, Tid);
+-        }
++     if (ioctl(f, DMX_SET_BUFFER_SIZE, MAX_SECTION_SIZE * RB_NUM_SECTIONS) < 0)
++       esyslog("OpenFilter (pid=%d, tid=%02X): ioctl DMX_SET_BUFFER_SIZE failed", Pid, Tid);
+      dmx_sct_filter_params sctFilterParams;
+      memset(&sctFilterParams, 0, sizeof(sctFilterParams));
+      sctFilterParams.pid = Pid;
+@@ -2157,11 +2282,14 @@ int cDvbDevice::OpenFilter(u_short Pid, u_char Tid, u_char Mask)
       sctFilterParams.flags = DMX_IMMEDIATE_START;
       sctFilterParams.filter.filter[0] = Tid;
       sctFilterParams.filter.mask[0] = Mask;
@@ -423,7 +442,7 @@ index 2f312c0..791b876 100644
          }
       }
    else
-@@ -2171,7 +2301,9 @@ int cDvbDevice::OpenFilter(u_short Pid, u_char Tid, u_char Mask)
+@@ -2171,7 +2299,9 @@ int cDvbDevice::OpenFilter(u_short Pid, u_char Tid, u_char Mask)
  
  void cDvbDevice::CloseFilter(int Handle)
  {
@@ -433,7 +452,7 @@ index 2f312c0..791b876 100644
  }
  
  bool cDvbDevice::ProvidesDeliverySystem(int DeliverySystem) const
-@@ -2319,9 +2451,10 @@ void cDvbDevice::SetTransferModeForDolbyDigital(int Mode)
+@@ -2319,9 +2449,10 @@ void cDvbDevice::SetTransferModeForDolbyDigital(int Mode)
  bool cDvbDevice::OpenDvr(void)
  {
    CloseDvr();
@@ -446,7 +465,7 @@ index 2f312c0..791b876 100644
    return fd_dvr >= 0;
  }
  
-@@ -2330,7 +2463,6 @@ void cDvbDevice::CloseDvr(void)
+@@ -2330,7 +2461,6 @@ void cDvbDevice::CloseDvr(void)
    if (fd_dvr >= 0) {
       delete tsBuffer;
       tsBuffer = NULL;
