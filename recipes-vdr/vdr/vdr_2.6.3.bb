@@ -1,4 +1,4 @@
-PR = "r7"
+PR = "r0"
 MAINTAINER = "df"
 SECTION = "multimedia"
 
@@ -13,9 +13,10 @@ HOMEPAGE = "http://www.tvdr.de/"
 LICENSE = "GPLv2"
 LIC_FILES_CHKSUM = "file://COPYING;md5=892f569a555ba9c07a568a7c0c4fa63a"
 
-SRC_URI = "git://git.tvdr.de/vdr.git;protocol=http \
-  file://01-dvb-oe.patch \
-  file://02-6hour-config-save-interval.patch \
+SRC_URI = "git://git.tvdr.de/vdr.git;protocol=http;branch=master \
+  file://10-vdr-2-6-3-fix.patch;striplevel=0 \
+  file://50-dvb-oe.patch \
+  file://51-6hour-config-save-interval.patch \
   file://00-vdr.conf \
   file://R90.custom \
   file://README.Debian \
@@ -37,13 +38,13 @@ SRC_URI = "git://git.tvdr.de/vdr.git;protocol=http \
   file://fbc.conf \
 "
 
-SRCREV="${PV}"
+SRCREV="55cc5ed988238304579b848dd892d0b906a236d5"
 
 S = "${WORKDIR}/git"
 
 inherit pkgconfig gettext update-rc.d
 
-DEPENDS = "pkgconfig fontconfig freetype libcap libjpeg-turbo"
+DEPENDS = "fontconfig freetype libcap libjpeg-turbo"
 
 RDEPENDS:${PN} = "glibc-gconv-iso8859-1"
 

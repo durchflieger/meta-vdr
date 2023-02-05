@@ -18,7 +18,6 @@ while (true) do
         2)
             ERROR=`cat "$VDR_ERR"`
             logger -t runvdr "stopping after fatal fail ($ERROR)"
-	    [ -x /etc/vdr/vdrfailure ] && /etc/vdr/vdrfailure "vdr signals fatal fail"
             exit
         ;;
         3)

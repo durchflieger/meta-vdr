@@ -24,17 +24,17 @@ HOMEPAGE = "https://github.com/vdr-projects/${PN}"
 LICENSE = "GPLv2"
 LIC_FILES_CHKSUM = "file://COPYING;md5=b234ee4d69f5fce4486a80fdaf4a4263"
 
-SRC_URI = "git://github.com/vdr-projects/vdr-plugin-streamdev;protocol=https \
+SRC_URI = "git://github.com/vdr-projects/vdr-plugin-streamdev;branch=master;protocol=https \
   file://00-makefile.patch \
 "
 
-SRCREV="${PV}"
+SRCREV="da74779591827ad7e10493b0eade65a11c525171"
 
 S = "${WORKDIR}/git"
 
-inherit gettext
+inherit gettext pkgconfig
 
-DEPENDS = "pkgconfig vdr openssl"
+DEPENDS = "vdr openssl"
 
 PACKAGES = "${PN}-dbg ${PN_CLIENT} ${PN_SERVER} ${PN}-doc"
 

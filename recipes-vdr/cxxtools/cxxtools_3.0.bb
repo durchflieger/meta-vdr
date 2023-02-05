@@ -1,4 +1,4 @@
-PR = "r0"
+PR = "r1"
 MAINTAINER = "df"
 SECTION = "extra"
 
@@ -16,7 +16,8 @@ HOMEPAGE = "http://www.tntnet.org/cxxtools.html"
 LICENSE = "GPLv2"
 LIC_FILES_CHKSUM = "file://COPYING;md5=1702a92c723f09e3fab3583b165a8d90"
 
-SRC_URI = "git://github.com/maekitalo/cxxtools.git;branch=master;protocol=https"
+SRC_URI = "git://github.com/maekitalo/cxxtools.git;branch=master;protocol=https \
+	file://50-fix-missing-timer-header.patch"
 
 #SRCREV = "V${PV}"
 SRCREV = "31a212fe400b36cc5b9ea0dd76d9b5facfde914d"
@@ -26,7 +27,7 @@ S = "${WORKDIR}/git"
 inherit pkgconfig binconfig autotools gettext
 BBCLASSEXTEND = "native"
 
-DEPENDS = "pkgconfig openssl"
+DEPENDS = "openssl"
 
 EXTRA_OECONF:class-target = "--disable-demos --disable-unittest --without-ssl --with-iconvstream=yes"
 EXTRA_OECONF:class-native = "--disable-demos --disable-unittest --without-ssl --with-iconvstream=yes"

@@ -23,9 +23,9 @@ SRC_URI[sha256sum] = "8559c74838e5105016b8c0cd506d3f8721933e2bbadd5b3617f465284f
 
 S = "${WORKDIR}/${PLUGIN_BASE_NAME}-${PV}"
 
-inherit gettext
+inherit gettext pkgconfig
 
-DEPENDS = "pkgconfig vdr librepfunc"
+DEPENDS = "vdr librepfunc"
 
 PACKAGES = "${PN}-dbg ${PN} ${PN}-doc"
 

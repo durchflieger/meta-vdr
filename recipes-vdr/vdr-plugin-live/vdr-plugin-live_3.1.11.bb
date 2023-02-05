@@ -23,14 +23,14 @@ SRC_URI = "git://github.com/MarkusEh/vdr-plugin-live.git;branch=master;protocol=
   file://${PLUGIN_CONF_FILE} \
 "
 
-SRCREV = "v${PV}"
+SRCREV = "82e2e7ef28f38039b3882a662785cff83993b683"
 
 S = "${WORKDIR}/git"
 
 PARALLEL_MAKE = "-j 1"
 
-inherit gettext
-DEPENDS = "pkgconfig vdr libtntnet libtntnet-native libpcre2"
+inherit gettext pkgconfig
+DEPENDS = "vdr libtntnet libtntnet-native libpcre2"
 
 PACKAGES = "${PN}-dbg ${PN} ${PN}-doc"
 

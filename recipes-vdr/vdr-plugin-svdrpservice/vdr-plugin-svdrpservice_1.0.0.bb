@@ -21,9 +21,9 @@ SRCREV = "7f10bcd5db1f6f4ac8b71bedbff3ddef4f77ec14"
 
 S = "${WORKDIR}/git"
 
-inherit gettext
+inherit gettext pkgconfig
 
-DEPENDS = "pkgconfig vdr"
+DEPENDS = "vdr"
 
 PACKAGES = "${PN}-dbg ${PN} ${PN}-doc ${PN}-dev"
 

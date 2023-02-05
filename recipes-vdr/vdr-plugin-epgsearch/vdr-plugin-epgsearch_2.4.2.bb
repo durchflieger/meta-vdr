@@ -29,14 +29,14 @@ SRC_URI = "git://github.com/vdr-projects/vdr-plugin-epgsearch.git;branch=master;
   file://rememberevent.sh \
 "
 
-SRCREV = "76d2b108bf17fde2a98e021c8bbfecb1a9a7e92e"
+SRCREV = "7f7f9f6569bd50946166fe23463879c16378b651"
 
 S = "${WORKDIR}/git"
 
-inherit gettext
+inherit gettext pkgconfig
 
-#DEPENDS = "pkgconfig vdr libpcre2"
-DEPENDS = "pkgconfig vdr"
+#DEPENDS = "vdr libpcre2"
+DEPENDS = "vdr"
 
 PACKAGES = "${PN}-dbg ${PN} ${PN}-doc"
 

@@ -15,14 +15,14 @@ LICENSE = "GPLv2"
 LIC_FILES_CHKSUM = "file://COPYING;md5=2d34f68dad6fc14cfc1e9eec76fa9964"
 
 SRC_URI = "git://github.com/kfb77/vdr-plugin-markad;protocol=https;branch=master"
-SRCREV="v${PV}"
-#SRCREV="4a77f7f030634ea2c2e693248ec4247f940f9ac5"
+
+SRCREV="146b24bcfa8ccba2cbb0d8e5d90ac5abb1cfdf25"
 
 S = "${WORKDIR}/git"
 
-inherit gettext
+inherit gettext pkgconfig
 
-DEPENDS = "pkgconfig vdr ffmpeg"
+DEPENDS = "vdr ffmpeg"
 
 PACKAGES = "${PN}-dbg ${PN} ${PN}-doc"
 

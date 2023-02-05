@@ -28,9 +28,9 @@ SRC_URI[sha256sum] = "333acc400802db4470d16e85f0e56eeca50d9523ddf6c716381b45d17a
 
 S = "${WORKDIR}/${PLUGIN_BASE_NAME}-${PV}"
 
-inherit gettext
+inherit gettext pkgconfig
 
-DEPENDS = "pkgconfig vdr"
+DEPENDS = "vdr"
 
 PACKAGES = "${PN}-dbg ${PN} ${PN}-doc"
 

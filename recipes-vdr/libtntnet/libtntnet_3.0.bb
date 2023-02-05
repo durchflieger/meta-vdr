@@ -24,7 +24,7 @@ S = "${WORKDIR}/git"
 inherit pkgconfig binconfig autotools gettext
 BBCLASSEXTEND = "native"
 
-DEPENDS = "pkgconfig cxxtools libtool zlib"
+DEPENDS = "cxxtools libtool zlib"
 
 EXTRA_OECONF:class-native = "--disable-unittest --disable-server"
 

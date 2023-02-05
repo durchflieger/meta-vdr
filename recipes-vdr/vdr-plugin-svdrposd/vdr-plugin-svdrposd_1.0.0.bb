@@ -20,9 +20,9 @@ SRCREV = "0d9163dce422b8e9ab491897391b2b4b13c147b4"
 
 S = "${WORKDIR}/git"
 
-inherit gettext
+inherit gettext pkgconfig
 
-DEPENDS = "pkgconfig vdr vdr-plugin-svdrpservice"
+DEPENDS = "vdr vdr-plugin-svdrpservice"
 
 PACKAGES = "${PN}-dbg ${PN} ${PN}-doc"
 

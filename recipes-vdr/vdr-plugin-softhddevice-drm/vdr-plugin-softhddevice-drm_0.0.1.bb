@@ -20,9 +20,9 @@ SRCREV = "ded8dc35b013e6417d3452cbb83b0695a3592a25"
 
 S = "${WORKDIR}/git"
 
-inherit gettext
+inherit gettext pkgconfig
 
-DEPENDS = "pkgconfig vdr alsa-lib ffmpeg libdrm"
+DEPENDS = "vdr alsa-lib ffmpeg libdrm"
 
 PACKAGES = "${PN}-dbg ${PN} ${PN}-doc"
 
