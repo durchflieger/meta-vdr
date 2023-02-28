@@ -14,7 +14,6 @@ LICENSE = "GPLv2"
 LIC_FILES_CHKSUM = "file://COPYING;md5=892f569a555ba9c07a568a7c0c4fa63a"
 
 SRC_URI = "git://git.tvdr.de/vdr.git;protocol=http;branch=master \
-  file://10-vdr-2-6-3-fix.patch;striplevel=0 \
   file://50-dvb-oe.patch \
   file://51-6hour-config-save-interval.patch \
   file://00-vdr.conf \
@@ -38,7 +37,7 @@ SRC_URI = "git://git.tvdr.de/vdr.git;protocol=http;branch=master \
   file://fbc.conf \
 "
 
-SRCREV="55cc5ed988238304579b848dd892d0b906a236d5"
+SRCREV="5f136032a2cf9ce979c3ec81556a9c3164820baf"
 
 S = "${WORKDIR}/git"
 

@@ -24,7 +24,7 @@ index 4b9c9cc..4d24534 100644
                      }
                   }
 diff --git a/dvbdevice.c b/dvbdevice.c
-index 2f312c0..23d99f8 100644
+index 2f312c0..3755ac5 100644
 --- a/dvbdevice.c
 +++ b/dvbdevice.c
 @@ -20,6 +20,7 @@
@@ -58,18 +58,27 @@ index 2f312c0..23d99f8 100644
    QueryDeliverySystems();
    Close();
 +
-+  int f = DvbOpen(DEV_DVB_DEMUX, adapter, frontend, O_RDWR | O_NONBLOCK, true);
++  int f = DvbOpen(DEV_DVB_DEMUX, adapter, frontend, O_RDONLY, true);
 +  if (f >= 0) {
 +    int s = DMX_SOURCE_FRONT0 + frontend;
 +    if (ioctl(f, DMX_SET_SOURCE, &s) < 0)
 +       esyslog("ERROR: can't set source for demux  %d/%d", adapter, frontend);
 +    else
 +       dsyslog("demux %d/%d set source %d", adapter, frontend, s);
-+    close(f);
++    CHECK(close(f));
 +    }
  }
  
  cDvbFrontend::~cDvbFrontend()
+@@ -383,7 +405,7 @@ cDvbFrontend::~cDvbFrontend()
+ int cDvbFrontend::Open(void)
+ {
+   Close();
+-  fd_frontend = DvbOpen(DEV_DVB_FRONTEND, adapter, frontend, O_RDWR | O_NONBLOCK, true);
++  fd_frontend = DvbOpen(DEV_DVB_FRONTEND, adapter, frontend, O_RDONLY, true);
+   return fd_frontend;
+ }
+ 
 @@ -568,6 +590,9 @@ private:
    void ResetToneAndVoltage(void);
    bool SetFrontend(void);
@@ -306,6 +315,15 @@ index 2f312c0..23d99f8 100644
  
    // Common Interface:
  
+@@ -1895,7 +1991,7 @@ bool cDvbDevice::Exists(int Adapter, int Frontend)
+   if (access(FileName, F_OK) == 0) {
+      int f = open(FileName, O_RDONLY);
+      if (f >= 0) {
+-        close(f);
++        CHECK(close(f));
+         return true;
+         }
+      else if (errno != ENODEV && errno != EINVAL)
 @@ -2094,6 +2190,21 @@ bool cDvbDevice::BondingOk(const cChannel *Channel, bool ConsiderOccupied) const
    return true;
  }
@@ -328,7 +346,7 @@ index 2f312c0..23d99f8 100644
  bool cDvbDevice::HasCi(void)
  {
    return ciAdapter;
-@@ -2102,54 +2213,68 @@ bool cDvbDevice::HasCi(void)
+@@ -2102,38 +2213,54 @@ bool cDvbDevice::HasCi(void)
  bool cDvbDevice::SetPid(cPidHandle *Handle, int Type, bool On)
  {
    if (Handle->pid) {
@@ -339,7 +357,7 @@ index 2f312c0..23d99f8 100644
 -           Handle->handle = DvbOpen(DEV_DVB_DEMUX, adapter, frontend, O_RDWR | O_NONBLOCK, true);
 -           if (Handle->handle < 0) {
 +        if (fd_dvr_demux < 0) {
-+           fd_dvr_demux = DvbOpen(DEV_DVB_DEMUX, adapter, frontend, O_RDWR | O_NONBLOCK, true);
++           fd_dvr_demux = DvbOpen(DEV_DVB_DEMUX, adapter, frontend, O_RDONLY, true);
 +           if (fd_dvr_demux < 0) {
                LOG_ERROR;
                return false;
@@ -401,32 +419,22 @@ index 2f312c0..23d99f8 100644
 +               return true;
 +	   }
 +        CHECK(ioctl(fd_dvr_demux, DMX_STOP));
-+        close(fd_dvr_demux);
++        CHECK(close(fd_dvr_demux));
 +        fd_dvr_demux = -1;
 +        dsyslog("dvr demux %d/%d stop", adapter, frontend);
          }
       }
    return true;
- }
- 
--#define RB_NUM_SECTIONS 8 // default: 2 sections = 8192 bytes
-+#define RB_NUM_SECTIONS 16 // default: 2 sections = 8192 bytes
- 
+@@ -2144,7 +2271,7 @@ bool cDvbDevice::SetPid(cPidHandle *Handle, int Type, bool On)
  int cDvbDevice::OpenFilter(u_short Pid, u_char Tid, u_char Mask)
  {
    cString FileName = DvbName(DEV_DVB_DEMUX, adapter, frontend);
-   int f = open(FileName, O_RDWR | O_NONBLOCK);
+-  int f = open(FileName, O_RDWR | O_NONBLOCK);
++  int f = open(FileName, O_RDONLY);
    if (f >= 0) {
--     if (Pid == EITPID) { // increase ringbuffer size for EIT
--        if (ioctl(f, DMX_SET_BUFFER_SIZE, MAX_SECTION_SIZE * RB_NUM_SECTIONS) < 0)
--           dsyslog("OpenFilter (pid=%d, tid=%02X): ioctl DMX_SET_BUFFER_SIZE failed", Pid, Tid);
--        }
-+     if (ioctl(f, DMX_SET_BUFFER_SIZE, MAX_SECTION_SIZE * RB_NUM_SECTIONS) < 0)
-+       esyslog("OpenFilter (pid=%d, tid=%02X): ioctl DMX_SET_BUFFER_SIZE failed", Pid, Tid);
-      dmx_sct_filter_params sctFilterParams;
-      memset(&sctFilterParams, 0, sizeof(sctFilterParams));
-      sctFilterParams.pid = Pid;
-@@ -2157,11 +2282,14 @@ int cDvbDevice::OpenFilter(u_short Pid, u_char Tid, u_char Mask)
+      if (Pid == EITPID) { // increase ringbuffer size for EIT
+         if (ioctl(f, DMX_SET_BUFFER_SIZE, MAX_SECTION_SIZE * RB_NUM_SECTIONS) < 0)
+@@ -2157,11 +2284,14 @@ int cDvbDevice::OpenFilter(u_short Pid, u_char Tid, u_char Mask)
       sctFilterParams.flags = DMX_IMMEDIATE_START;
       sctFilterParams.filter.filter[0] = Tid;
       sctFilterParams.filter.mask[0] = Mask;
@@ -442,17 +450,18 @@ index 2f312c0..23d99f8 100644
          }
       }
    else
-@@ -2171,7 +2299,9 @@ int cDvbDevice::OpenFilter(u_short Pid, u_char Tid, u_char Mask)
+@@ -2171,7 +2301,9 @@ int cDvbDevice::OpenFilter(u_short Pid, u_char Tid, u_char Mask)
  
  void cDvbDevice::CloseFilter(int Handle)
  {
+-  close(Handle);
 +  CHECK(ioctl(Handle, DMX_STOP));
-   close(Handle);
++  CHECK(close(Handle));
 +  dsyslog("filter demux %d/%d stop fd %d", adapter, frontend, Handle);
  }
  
  bool cDvbDevice::ProvidesDeliverySystem(int DeliverySystem) const
-@@ -2319,9 +2449,10 @@ void cDvbDevice::SetTransferModeForDolbyDigital(int Mode)
+@@ -2319,9 +2451,10 @@ void cDvbDevice::SetTransferModeForDolbyDigital(int Mode)
  bool cDvbDevice::OpenDvr(void)
  {
    CloseDvr();
@@ -465,7 +474,7 @@ index 2f312c0..23d99f8 100644
    return fd_dvr >= 0;
  }
  
-@@ -2330,7 +2461,6 @@ void cDvbDevice::CloseDvr(void)
+@@ -2330,7 +2463,6 @@ void cDvbDevice::CloseDvr(void)
    if (fd_dvr >= 0) {
       delete tsBuffer;
       tsBuffer = NULL;

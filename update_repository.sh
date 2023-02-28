@@ -2,23 +2,25 @@
 set -e
 shopt -s extglob nullglob
 
-META_VDR_DIR=$(dirname $0)
-if [ ! -f "$META_VDR_DIR/config.sh" ]; then echo "could not find config.sh"; exit 1; fi
-source $META_VDR_DIR/config.sh
+META_DIR=$(dirname $0)
+if [ ! -f "$META_DIR/config.sh" ]; then echo "could not find config.sh"; exit 1; fi
+source $META_DIR/config.sh
 
-if [ ! -f "$META_VDR_PKG_LIST" ]; then echo "package list not found!"; exit 1; fi
-PACKAGES=$(sed -e 's/#.*$//' $META_VDR_PKG_LIST)
+if [ ! -f "$META_PKG_LIST" ]; then echo "package list not found!"; exit 1; fi
+PACKAGES=$(sed -e 's/#.*$//' $META_PKG_LIST)
 
 if [ ! -x "$OPKG_UTILS_DIR/opkg-make-index" ]; then echo "opkg-make-index not found!"; exit 1; fi
 
 found_git_repo=
-if [ -n "$GIT_REPO_URL" ]; then
+if [ -n "$GIT_REPO_URL" -a "$GIT_REPO_URL" != "-" ]; then
 	if [ -d "$REPO_DIR" ]; then
 		if [ -d "$REPO_DIR/.git" ]; then found_git_repo=1; fi
 		#if [ -n "$found_git_repo" ]; then git -C $REPO_DIR pull origin; git -C $REPO_DIR reset --hard; fi
 	else
 		if git -C $(dirname $REPO_DIR) clone "$GIT_REPO_URL" $REPO_DIR; then found_git_repo=1; fi
 	fi
+else
+	mkdir -p "$REPO_DIR"
 fi
 
 PKG_DIR="$(pwd)/tmp/deploy/ipk"
@@ -37,7 +39,7 @@ has_changed=""
 for p in $PACKAGES; do
 	echo "Package ${p}:"
 	has_new=""
-	for pkg in ${PKG_DIR}/*/${p}+(*([0-9])|-dev|-dbg|-doc|-client|-server)_*.ipk ; do
+	for pkg in ${PKG_DIR}/*/${p}+(*([-.0-9])|-doc|-client|-server)_*.ipk ; do
 		ipk=$(basename $pkg)
 		arch=$(basename $(dirname $pkg))
 		echo -n "- $ipk"
@@ -59,24 +61,28 @@ if [ -n "$has_changed" ]; then
 	if [ -n "$found_git_repo" ]; then git -C $REPO_DIR add Packages.gz Packages.stamps; fi
 fi
 
-if [ -n "$found_git_repo" ]; then
-	# Create opkg feed file
-	export FEED_FILE="${REPO_NAME}-${GIT_REPO_OWNER}-feed.conf"
-	f="$REPO_DIR/$FEED_FILE"
-	t="${f}.tmp"
-  echo "src/gz ${REPO_NAME}-${GIT_REPO_OWNER} ${REPO_URL}" > $t
-	if [ ! -f "$f" ] || if diff -q $f $t; then false; else true; fi; then
-		mv $t $f
+# Create opkg feed file
+export FEED_FILE="${REPO_NAME}-${GIT_REPO_OWNER}-feed.conf"
+f="$REPO_DIR/$FEED_FILE"
+t="${f}.tmp"
+echo "src/gz ${REPO_NAME}-${GIT_REPO_OWNER} ${REPO_URL}" > $t
+if [ ! -f "$f" ] || if diff -q $f $t; then false; else true; fi; then
+	mv $t $f
+	if [ -n "$found_git_repo" ]; then
 		git -C $REPO_DIR add $FEED_FILE
 		echo "new/updated $FEED_FILE" >> $GIT_MSG
-		has_changed="y"
 	fi
+	has_changed="y"
+else
+	rm $t
+fi
 
+if [ -n "$found_git_repo" ]; then
 	# create README
-	if [ -f "$META_VDR_DIR/repository/README.in" ]; then
+	if [ -f "$META_DIR/repository/README.in" ]; then
 		f="$REPO_DIR/README.md"
 		t="${f}.tmp"
-		envsubst < $META_VDR_DIR/repository/README.in > $t
+		envsubst < $META_DIR/repository/README.in > $t
 		if [ ! -f "$f" ] || if diff -q $f $t; then false; else true; fi; then
 			mv $t $f
 			git -C $REPO_DIR add README.md
@@ -84,9 +90,7 @@ if [ -n "$found_git_repo" ]; then
 			has_changed="y"
 		fi
 	fi
-fi
 
-if [ -n "$found_git_repo" ]; then
 	if [ -n "$has_changed" ]; then
 		echo "commit message:"
 		cat $GIT_MSG
