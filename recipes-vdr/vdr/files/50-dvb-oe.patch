@@ -1,5 +1,5 @@
 diff --git a/device.c b/device.c
-index 4b9c9cc..4d24534 100644
+index 89d62c8c..9b75d011 100644
 --- a/device.c
 +++ b/device.c
 @@ -457,7 +457,7 @@ void cDevice::SetCamSlot(cCamSlot *CamSlot)
@@ -24,7 +24,7 @@ index 4b9c9cc..4d24534 100644
                      }
                   }
 diff --git a/dvbdevice.c b/dvbdevice.c
-index 2f312c0..3755ac5 100644
+index 69f1082f..fd33d812 100644
 --- a/dvbdevice.c
 +++ b/dvbdevice.c
 @@ -20,6 +20,7 @@
@@ -35,7 +35,7 @@ index 2f312c0..3755ac5 100644
  
  static int DvbApiVersion = 0x0000; // the version of the DVB driver actually in use (will be determined by the first device created)
  
-@@ -199,6 +200,17 @@ int MapToDriver(int Value, const tDvbParameterMap *Map)
+@@ -202,6 +203,17 @@ int MapToDriver(int Value, const tDvbParameterMap *Map)
    return -1;
  }
  
@@ -53,12 +53,12 @@ index 2f312c0..3755ac5 100644
  // --- cDvbTransponderParameters ---------------------------------------------
  
  cDvbTransponderParameters::cDvbTransponderParameters(const char *Parameters)
-@@ -373,6 +385,16 @@ cDvbFrontend::cDvbFrontend(int Adapter, int Frontend)
+@@ -376,6 +388,16 @@ cDvbFrontend::cDvbFrontend(int Adapter, int Frontend)
    Open();
    QueryDeliverySystems();
    Close();
 +
-+  int f = DvbOpen(DEV_DVB_DEMUX, adapter, frontend, O_RDONLY, true);
++  int f = DvbOpen(DEV_DVB_DEMUX, adapter, frontend, O_RDWR, true);
 +  if (f >= 0) {
 +    int s = DMX_SOURCE_FRONT0 + frontend;
 +    if (ioctl(f, DMX_SET_SOURCE, &s) < 0)
@@ -70,16 +70,7 @@ index 2f312c0..3755ac5 100644
  }
  
  cDvbFrontend::~cDvbFrontend()
-@@ -383,7 +405,7 @@ cDvbFrontend::~cDvbFrontend()
- int cDvbFrontend::Open(void)
- {
-   Close();
--  fd_frontend = DvbOpen(DEV_DVB_FRONTEND, adapter, frontend, O_RDWR | O_NONBLOCK, true);
-+  fd_frontend = DvbOpen(DEV_DVB_FRONTEND, adapter, frontend, O_RDONLY, true);
-   return fd_frontend;
- }
- 
-@@ -568,6 +590,9 @@ private:
+@@ -571,6 +593,9 @@ private:
    void ResetToneAndVoltage(void);
    bool SetFrontend(void);
    virtual void Action(void);
@@ -89,7 +80,7 @@ index 2f312c0..3755ac5 100644
  public:
    cDvbTuner(const cDvbDevice *Device, int Adapter, int Frontend);
    virtual ~cDvbTuner();
-@@ -590,6 +615,10 @@ public:
+@@ -593,6 +618,10 @@ public:
    bool GetSignalStats(int &Valid, double *Strength = NULL, double *Cnr = NULL, double *BerPre = NULL, double *BerPost = NULL, double *Per = NULL, int *Status = NULL) const;
    int GetSignalStrength(void) const;
    int GetSignalQuality(void) const;
@@ -100,7 +91,7 @@ index 2f312c0..3755ac5 100644
    };
  
  cMutex cDvbTuner::bondMutex;
-@@ -622,8 +651,53 @@ cDvbTuner::cDvbTuner(const cDvbDevice *Device, int Adapter, int Frontend)
+@@ -625,8 +654,53 @@ cDvbTuner::cDvbTuner(const cDvbDevice *Device, int Adapter, int Frontend)
    numDeliverySystems = fe->NumDeliverySystems();
    numModulations = fe->NumModulations();
    cString FrontendNumbers = cString::sprintf("%d", frontend);
@@ -155,7 +146,7 @@ index 2f312c0..3755ac5 100644
       for (int i = 1; ; i++) {
           if (access(DvbName(DEV_DVB_FRONTEND, adapter, i), F_OK) == 0) {
              if (access(DvbName(DEV_DVB_DEMUX, adapter, i), F_OK) != 0) {
-@@ -638,9 +712,12 @@ cDvbTuner::cDvbTuner(const cDvbDevice *Device, int Adapter, int Frontend)
+@@ -641,9 +715,12 @@ cDvbTuner::cDvbTuner(const cDvbDevice *Device, int Adapter, int Frontend)
              break;
           }
       }
@@ -171,7 +162,7 @@ index 2f312c0..3755ac5 100644
    SetDescription("frontend %d/%s tuner", adapter, *FrontendNumbers);
    Start();
  }
-@@ -691,6 +768,7 @@ bool cDvbTuner::ProvidesFrontend(const cChannel *Channel, bool Activate) const
+@@ -694,6 +771,7 @@ bool cDvbTuner::ProvidesFrontend(const cChannel *Channel, bool Activate) const
              dvbFrontend->Close();
              dvbFrontend = dvbFrontends[i];
              fd_frontend = dvbFrontend->Open();
@@ -179,7 +170,7 @@ index 2f312c0..3755ac5 100644
              frontend = i;
              dsyslog("using frontend %d/%d", adapter, frontend);
              lastUncValue = 0;
-@@ -707,11 +785,17 @@ bool cDvbTuner::Bond(cDvbTuner *Tuner)
+@@ -710,11 +788,17 @@ bool cDvbTuner::Bond(cDvbTuner *Tuner)
  {
    cMutexLock MutexLock(&bondMutex);
    if (!bondedTuner) {
@@ -199,7 +190,7 @@ index 2f312c0..3755ac5 100644
       return true;
       }
    else
-@@ -1469,7 +1553,7 @@ cPositioner *cDvbTuner::GetPositioner(void)
+@@ -1472,7 +1556,7 @@ cPositioner *cDvbTuner::GetPositioner(void)
  {
    if (!positioner) {
       positioner = cPositioner::GetPositioner();
@@ -208,7 +199,7 @@ index 2f312c0..3755ac5 100644
       }
    return positioner;
  }
-@@ -1477,10 +1561,12 @@ cPositioner *cDvbTuner::GetPositioner(void)
+@@ -1480,10 +1564,12 @@ cPositioner *cDvbTuner::GetPositioner(void)
  void cDvbTuner::ExecuteDiseqc(const cDiseqc *Diseqc, int *Frequency)
  {
    if (!lnbPowerTurnedOn) {
@@ -222,7 +213,7 @@ index 2f312c0..3755ac5 100644
    if (Diseqc->IsScr())
       Mutex.Lock();
    struct dvb_diseqc_master_cmd cmd;
-@@ -1496,13 +1582,13 @@ void cDvbTuner::ExecuteDiseqc(const cDiseqc *Diseqc, int *Frequency)
+@@ -1499,13 +1585,13 @@ void cDvbTuner::ExecuteDiseqc(const cDiseqc *Diseqc, int *Frequency)
           }
        bool d = i >= diseqcOffset;
        switch (da) {
@@ -243,7 +234,7 @@ index 2f312c0..3755ac5 100644
          case cDiseqc::daPositionN: if ((Positioner = GetPositioner()) != NULL) {
                                        if (d) {
                                           Positioner->GotoPosition(Diseqc->Position(), cSource::Position(channel.Source()));
-@@ -1525,16 +1611,23 @@ void cDvbTuner::ExecuteDiseqc(const cDiseqc *Diseqc, int *Frequency)
+@@ -1528,16 +1614,23 @@ void cDvbTuner::ExecuteDiseqc(const cDiseqc *Diseqc, int *Frequency)
           diseqcOffset = i + 1;
        }
    positioner = Positioner;
@@ -271,7 +262,7 @@ index 2f312c0..3755ac5 100644
  }
  
  bool cDvbTuner::SetFrontend(void)
-@@ -1592,12 +1685,12 @@ bool cDvbTuner::SetFrontend(void)
+@@ -1595,12 +1688,12 @@ bool cDvbTuner::SetFrontend(void)
             tone = SEC_TONE_ON;
             }
          int volt = (dtp.Polarization() == 'V' || dtp.Polarization() == 'R') ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
@@ -289,7 +280,7 @@ index 2f312c0..3755ac5 100644
          }
       frequency = abs(frequency); // Allow for C-band, where the frequency is less than the LOF
  
-@@ -1612,7 +1705,8 @@ bool cDvbTuner::SetFrontend(void)
+@@ -1615,7 +1708,8 @@ bool cDvbTuner::SetFrontend(void)
          SETCMD(DTV_PILOT, dtp.Pilot());
          SETCMD(DTV_ROLLOFF, dtp.RollOff());
          if (DvbApiVersion >= 0x0508)
@@ -299,7 +290,7 @@ index 2f312c0..3755ac5 100644
          }
       else {
          // DVB-S
-@@ -1829,6 +1923,7 @@ cOsdItem *cDvbSourceParam::GetOsdItem(void)
+@@ -1832,6 +1926,7 @@ cOsdItem *cDvbSourceParam::GetOsdItem(void)
  // --- cDvbDevice ------------------------------------------------------------
  
  bool cDvbDevice::useDvbDevices = true;
@@ -307,7 +298,7 @@ index 2f312c0..3755ac5 100644
  int cDvbDevice::setTransferModeForDolbyDigital = 1;
  cMutex cDvbDevice::bondMutex;
  
-@@ -1841,6 +1936,7 @@ cDvbDevice::cDvbDevice(int Adapter, int Frontend)
+@@ -1844,6 +1939,7 @@ cDvbDevice::cDvbDevice(int Adapter, int Frontend)
    bondedDevice = NULL;
    needsDetachBondedReceivers = false;
    tsBuffer = NULL;
@@ -315,7 +306,7 @@ index 2f312c0..3755ac5 100644
  
    // Common Interface:
  
-@@ -1895,7 +1991,7 @@ bool cDvbDevice::Exists(int Adapter, int Frontend)
+@@ -1898,7 +1994,7 @@ bool cDvbDevice::Exists(int Adapter, int Frontend)
    if (access(FileName, F_OK) == 0) {
       int f = open(FileName, O_RDONLY);
       if (f >= 0) {
@@ -324,7 +315,7 @@ index 2f312c0..3755ac5 100644
          return true;
          }
       else if (errno != ENODEV && errno != EINVAL)
-@@ -2094,6 +2190,21 @@ bool cDvbDevice::BondingOk(const cChannel *Channel, bool ConsiderOccupied) const
+@@ -2097,6 +2193,21 @@ bool cDvbDevice::BondingOk(const cChannel *Channel, bool ConsiderOccupied) const
    return true;
  }
  
@@ -346,7 +337,7 @@ index 2f312c0..3755ac5 100644
  bool cDvbDevice::HasCi(void)
  {
    return ciAdapter;
-@@ -2102,38 +2213,54 @@ bool cDvbDevice::HasCi(void)
+@@ -2105,38 +2216,54 @@ bool cDvbDevice::HasCi(void)
  bool cDvbDevice::SetPid(cPidHandle *Handle, int Type, bool On)
  {
    if (Handle->pid) {
@@ -357,7 +348,7 @@ index 2f312c0..3755ac5 100644
 -           Handle->handle = DvbOpen(DEV_DVB_DEMUX, adapter, frontend, O_RDWR | O_NONBLOCK, true);
 -           if (Handle->handle < 0) {
 +        if (fd_dvr_demux < 0) {
-+           fd_dvr_demux = DvbOpen(DEV_DVB_DEMUX, adapter, frontend, O_RDONLY, true);
++           fd_dvr_demux = DvbOpen(DEV_DVB_DEMUX, adapter, frontend, O_RDONLY | O_NONBLOCK, true);
 +           if (fd_dvr_demux < 0) {
                LOG_ERROR;
                return false;
@@ -425,16 +416,7 @@ index 2f312c0..3755ac5 100644
          }
       }
    return true;
-@@ -2144,7 +2271,7 @@ bool cDvbDevice::SetPid(cPidHandle *Handle, int Type, bool On)
- int cDvbDevice::OpenFilter(u_short Pid, u_char Tid, u_char Mask)
- {
-   cString FileName = DvbName(DEV_DVB_DEMUX, adapter, frontend);
--  int f = open(FileName, O_RDWR | O_NONBLOCK);
-+  int f = open(FileName, O_RDONLY);
-   if (f >= 0) {
-      if (Pid == EITPID) { // increase ringbuffer size for EIT
-         if (ioctl(f, DMX_SET_BUFFER_SIZE, MAX_SECTION_SIZE * RB_NUM_SECTIONS) < 0)
-@@ -2157,11 +2284,14 @@ int cDvbDevice::OpenFilter(u_short Pid, u_char Tid, u_char Mask)
+@@ -2160,11 +2287,14 @@ int cDvbDevice::OpenFilter(u_short Pid, u_char Tid, u_char Mask)
       sctFilterParams.flags = DMX_IMMEDIATE_START;
       sctFilterParams.filter.filter[0] = Tid;
       sctFilterParams.filter.mask[0] = Mask;
@@ -446,11 +428,11 @@ index 2f312c0..3755ac5 100644
       else {
          esyslog("ERROR: can't set filter (pid=%d, tid=%02X, mask=%02X): %m", Pid, Tid, Mask);
          close(f);
-+	ShutdownHandler.Exit(3);
++	ShutdownHandler.RequestEmergencyExit(3);
          }
       }
    else
-@@ -2171,7 +2301,9 @@ int cDvbDevice::OpenFilter(u_short Pid, u_char Tid, u_char Mask)
+@@ -2174,7 +2304,9 @@ int cDvbDevice::OpenFilter(u_short Pid, u_char Tid, u_char Mask)
  
  void cDvbDevice::CloseFilter(int Handle)
  {
@@ -461,7 +443,7 @@ index 2f312c0..3755ac5 100644
  }
  
  bool cDvbDevice::ProvidesDeliverySystem(int DeliverySystem) const
-@@ -2319,9 +2451,10 @@ void cDvbDevice::SetTransferModeForDolbyDigital(int Mode)
+@@ -2322,9 +2454,10 @@ void cDvbDevice::SetTransferModeForDolbyDigital(int Mode)
  bool cDvbDevice::OpenDvr(void)
  {
    CloseDvr();
@@ -474,7 +456,7 @@ index 2f312c0..3755ac5 100644
    return fd_dvr >= 0;
  }
  
-@@ -2330,7 +2463,6 @@ void cDvbDevice::CloseDvr(void)
+@@ -2333,7 +2466,6 @@ void cDvbDevice::CloseDvr(void)
    if (fd_dvr >= 0) {
       delete tsBuffer;
       tsBuffer = NULL;
@@ -483,7 +465,7 @@ index 2f312c0..3755ac5 100644
       }
  }
 diff --git a/dvbdevice.h b/dvbdevice.h
-index b7d899d..7937e75 100644
+index b7d899d5..7937e75e 100644
 --- a/dvbdevice.h
 +++ b/dvbdevice.h
 @@ -173,6 +173,7 @@ private:
@@ -513,11 +495,43 @@ index b7d899d..7937e75 100644
  protected:
    virtual bool SetPid(cPidHandle *Handle, int Type, bool On);
  
+diff --git a/shutdown.c b/shutdown.c
+index 7e170a04..46dc3f06 100644
+--- a/shutdown.c
++++ b/shutdown.c
+@@ -90,12 +90,12 @@ cShutdownHandler::~cShutdownHandler()
+   free(shutdownCommand);
+ }
+ 
+-void cShutdownHandler::RequestEmergencyExit(void)
++void cShutdownHandler::RequestEmergencyExit(int ExitCode)
+ {
+   if (Setup.EmergencyExit) {
+      esyslog("initiating emergency exit");
+      emergencyExitRequested = true;
+-     Exit(1);
++     Exit(ExitCode);
+      }
+   else
+      dsyslog("emergency exit request ignored according to setup");
+diff --git a/shutdown.h b/shutdown.h
+index bf2a2a42..3f26c5f5 100644
+--- a/shutdown.h
++++ b/shutdown.h
+@@ -60,7 +60,7 @@ public:
+        ///< Get the currently set exit code of VDR.
+   bool EmergencyExitRequested(void) { return emergencyExitRequested; }
+        ///< Returns true if an emergency exit was requested.
+-  void RequestEmergencyExit(void);
++  void RequestEmergencyExit(int ExitCode = 1);
+        ///< Requests an emergency exit of the VDR main loop.
+   void CheckManualStart(int ManualStart);
+        ///< Check whether the next timer is in ManualStart time window.
 diff --git a/vdr.c b/vdr.c
-index 06c0c9a..38fc029 100644
+index 1bdc51ab..24415442 100644
 --- a/vdr.c
 +++ b/vdr.c
-@@ -217,6 +217,7 @@ int main(int argc, char *argv[])
+@@ -219,6 +219,7 @@ int main(int argc, char *argv[])
  #define DEFAULTPLUGINDIR PLUGINDIR
  #define DEFAULTLOCDIR LOCDIR
  #define DEFAULTEPGDATAFILENAME "epg.data"
@@ -525,7 +539,7 @@ index 06c0c9a..38fc029 100644
  
    bool StartedAsRoot = false;
    const char *VdrUser = NULL;
-@@ -253,6 +254,7 @@ int main(int argc, char *argv[])
+@@ -255,6 +256,7 @@ int main(int argc, char *argv[])
    time_t SdWatchdog = 0;
    int SdWatchdogTimeout = 0;
  #endif
@@ -533,7 +547,7 @@ index 06c0c9a..38fc029 100644
  
    cArgs *Args = NULL;
    if (argc == 1) {
-@@ -273,6 +275,7 @@ int main(int argc, char *argv[])
+@@ -275,6 +277,7 @@ int main(int argc, char *argv[])
        { "config",   required_argument, NULL, 'c' },
        { "daemon",   no_argument,       NULL, 'd' },
        { "device",   required_argument, NULL, 'D' },
@@ -541,7 +555,7 @@ index 06c0c9a..38fc029 100644
        { "dirnames", required_argument, NULL, 'd' | 0x100 },
        { "edit",     required_argument, NULL, 'e' | 0x100 },
        { "epgfile",  required_argument, NULL, 'E' },
-@@ -333,6 +336,14 @@ int main(int argc, char *argv[])
+@@ -335,6 +338,14 @@ int main(int argc, char *argv[])
                         }
                      fprintf(stderr, "vdr: invalid DVB device number: %s\n", optarg);
                      return 2;
@@ -556,7 +570,7 @@ index 06c0c9a..38fc029 100644
            case 'd' | 0x100: {
                      char *s = optarg;
                      if (*s != ',') {
-@@ -558,6 +569,7 @@ int main(int argc, char *argv[])
+@@ -544,6 +555,7 @@ int main(int argc, char *argv[])
                 "                           character table (for instance ISO-8859-9)\n"
                 "  -c DIR,   --config=DIR   read config files from DIR (default: %s)\n"
                 "  -d,       --daemon       run in daemon mode\n"
@@ -564,7 +578,7 @@ index 06c0c9a..38fc029 100644
                 "  -D NUM,   --device=NUM   use only the given DVB device (NUM = 0, 1, 2...)\n"
                 "                           there may be several -D options (default: all DVB\n"
                 "                           devices will be used); if -D- is given, no DVB\n"
-@@ -624,6 +636,7 @@ int main(int argc, char *argv[])
+@@ -610,6 +622,7 @@ int main(int argc, char *argv[])
                 "\n",
                 DEFAULTCACHEDIR,
                 DEFAULTCONFDIR,
